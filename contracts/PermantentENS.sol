@@ -2,30 +2,50 @@
 pragma solidity 0.8.16;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./IENS.sol";
 import "./IAlchemist.sol";
 import "./IPermantentENS.sol";
 import "./IUniswap.sol";
+
+import "hardhat/console.sol";
 
 contract PermantentENS is IPermantentENS, Ownable {
     ETHRegistrarController constant ens_controller =
         ETHRegistrarController(0x283Af0B28c62C092C9727F1Ee09c02CA627EB7F5);
     ENSRegistrar constant ens_registrar =
         ENSRegistrar(0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85);
-    UniswapV2Pair constant alUSD_WETH_pair =
-        UniswapV2Pair(0x0589e281D35ee1Acf6D4fd32f1fbA60EFfb5281B);
+    ENSPriceOracle constant ens_price_oracle =
+        ENSPriceOracle(0xB9d374d0fE3D8341155663FaE31b7BeAe0aE233A);
+    UniswapV2Router constant sushi_router =
+        UniswapV2Router(0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F);
     Alchemist constant alchemist =
         Alchemist(0x5C6374a2ac4EBC38DeA0Fc1F8716e5Ea1AdD94dd);
     IWETH constant weth = IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    IERC20 constant ALUSD = IERC20(0xBC6DA0FE9aD5f3b0d58160288917AA56653660E9);
 
-    /// @notice The fee when an user trigger renew for other one, divided by 100000
-    uint256 public constant miner_fee = 10000;
+    /// @notice The max fee when an user trigger renew for other one, divided by 100000
+    ///
+    /// @dev The miner receive will be `price * miner fee - swap fee`, hence miners can use some ways to reduce the slippage to increase their profit
+    uint public constant miner_fee =
+        10000 + 100000; /* fee + base */
+    /// @notice The slippage allowed when swap, divided by 100000
+    uint public constant swap_fee =
+        5000 + 100000; /* fee (3%) + slippage (2%) + base */
 
     /// @inheritdoc IPermantentENS
     mapping(bytes32 => Config[]) public configs;
 
+    address[] swap_path = [address(ALUSD), address(weth)];
+
+    constructor() {
+        unchecked {
+            ALUSD.approve(address(sushi_router), uint(0) - 1);
+        }
+    }
+
     /// @inheritdoc IPermantentENS
-    function enable(string calldata name, uint256 max_duration) external {
+    function enable(string calldata name, uint max_duration) external {
         bytes32 label = keccak256(abi.encodePacked(name));
         Config memory config = Config({
             name: name,
@@ -38,11 +58,11 @@ contract PermantentENS is IPermantentENS, Ownable {
     }
 
     /// @inheritdoc IPermantentENS
-    function disable(bytes32 label, uint256 config_idx) external {
+    function disable(bytes32 label, uint config_idx) external {
         Config memory config = configs[label][config_idx];
         require(
             msg.sender == config.payer ||
-                msg.sender == ens_registrar.ownerOf(uint256(label)),
+                msg.sender == ens_registrar.ownerOf(uint(label)),
             "Not allowed"
         );
         configs[label][config_idx].disabled = true;
@@ -52,12 +72,12 @@ contract PermantentENS is IPermantentENS, Ownable {
     /// @inheritdoc IPermantentENS
     function mine(
         bytes32 label,
-        uint256 config_idx,
-        uint256 duration
+        uint config_idx,
+        uint duration
     ) external {
         Config memory config = configs[label][config_idx];
-        uint256 new_expiry = ens_registrar.nameExpires(
-            uint256(keccak256(abi.encodePacked(config.name)))
+        uint new_expiry = ens_registrar.nameExpires(
+            uint(keccak256(abi.encodePacked(config.name)))
         ) + duration;
         require(!config.disabled, "Config disabled");
         // name expire + extend length < current + max_duration
@@ -67,29 +87,57 @@ contract PermantentENS is IPermantentENS, Ownable {
         );
 
         // compute the alUSD required to pay renew fee and miner fee
-        uint256 price = ens_controller.rentPrice(config.name, duration); // in wei
-        uint256 price_with_fee = (price * miner_fee) / 100000;
-        uint256 required_alUSD = getALUSDAmount(price_with_fee);
-        alchemist.mintFrom(config.payer, required_alUSD, address(this));
+        uint renew_price_wei = ens_controller.rentPrice(
+            config.name,
+            duration
+        ); // in eth
+        uint name_length = strlen(config.name);
+        uint renew_price_usd = ens_price_oracle.rentPrices(
+            (name_length > 5 ? 5 : name_length) - 1
+        ) * duration; // in usd
+        uint usd_amount = (renew_price_usd * miner_fee) / 100000;
+        uint usd_swap_amount = (renew_price_usd * swap_fee) / 100000;
+        alchemist.mintFrom(config.payer, usd_amount, address(this));
 
         // swap alUSD to ETH
-        alUSD_WETH_pair.swap(required_alUSD, price_with_fee, address(this), "");
-        weth.withdraw(price_with_fee);
+        uint spend = sushi_router.swapTokensForExactETH(
+            renew_price_wei,
+            usd_swap_amount,
+            swap_path,
+            address(this),
+            block.timestamp
+        )[0];
 
         // renew ens
-        ens_controller.renew{value: price}(config.name, duration);
+        ens_controller.renew{value: renew_price_wei}(config.name, duration);
         emit RenewedConfig(label, duration, new_expiry);
 
         // pay miner fee
-        payable(msg.sender).call{value: price_with_fee - price}("");
+        ALUSD.transfer(msg.sender, usd_amount - spend);
     }
 
-    /// @dev compute alUSD need for eth, it's identical with UniswapV2
-    function getALUSDAmount(uint256 eth) internal view returns (uint256) {
-        (uint256 alUSDAmount, uint256 ethAmount, ) = alUSD_WETH_pair
-            .getReserves();
-        uint256 numerator = alUSDAmount * eth * 1000;
-        uint256 denominator = (ethAmount - eth) * 997;
-        return numerator / denominator + 1;
+    receive() external payable {}
+
+    function strlen(string memory str) internal pure returns (uint) {
+        uint len;
+        uint i = 0;
+        uint bytelength = bytes(str).length;
+        for (len = 0; i < bytelength; len++) {
+            bytes1 b = bytes(str)[i];
+            if (b < 0x80) {
+                i += 1;
+            } else if (b < 0xE0) {
+                i += 2;
+            } else if (b < 0xF0) {
+                i += 3;
+            } else if (b < 0xF8) {
+                i += 4;
+            } else if (b < 0xFC) {
+                i += 5;
+            } else {
+                i += 6;
+            }
+        }
+        return len;
     }
 }

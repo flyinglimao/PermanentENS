@@ -15,3 +15,7 @@ interface ENSRegistrar {
 
     function ownerOf(uint256 id) external view returns (address);
 }
+
+interface ENSPriceOracle {
+    function rentPrices(uint256 len) external view returns (uint256);
+}
