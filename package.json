@@ -3,7 +3,10 @@
   "scripts": {
     "test": "hardhat test",
     "deploy": "hardhat run scripts/deploy.js",
-    "start": "hardhat node"
+    "start": "hardhat node",
+    "register-ens": "hardhat register-ens",
+    "mint-usdt": "hardhat mint-usdt",
+    "deposit-usdt": "hardhat deposit-usdt"
   },
   "dependencies": {
     "@nomicfoundation/hardhat-toolbox": "^1.0.1",

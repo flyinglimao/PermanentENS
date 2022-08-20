@@ -1,4 +1,4 @@
-const { ethers } = require('hardhat');
+const { ethers } = require('ethers');
 
 const USDT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
 const USDT_OWNER = '0xC6CDE7C39eB2f0F0095F41570af89eFC2C1Ea828';
@@ -15,7 +15,7 @@ async function mintUSDT(hre, target, amount) {
     method: 'hardhat_impersonateAccount',
     params: [USDT_OWNER],
   });
-  const usdt = USDT.connect(await ethers.getSigner(USDT_OWNER))
+  const usdt = USDT.connect(await hre.ethers.getSigner(USDT_OWNER));
   await usdt.issue(amount);
   await usdt.transfer(target, amount);
 }
