@@ -25,9 +25,15 @@ contract PermantentENS is IPermantentENS, Ownable {
     mapping(bytes32 => Config[]) public configs;
 
     /// @inheritdoc IPermantentENS
-    function enable(Config calldata config) external {
-        // not going to check mint allowance here since there isn't a p
-        bytes32 label = keccak256(abi.encodePacked(config.name));
+    function enable(string calldata name, uint256 max_duration) external {
+        bytes32 label = keccak256(abi.encodePacked(name));
+        Config memory config = Config({
+            name: name,
+            payer: msg.sender,
+            max_duration: max_duration,
+            disabled: false
+        });
+        emit NewConfig(label, configs[label].length);
         configs[label].push(config);
     }
 
@@ -36,13 +42,11 @@ contract PermantentENS is IPermantentENS, Ownable {
         Config memory config = configs[label][config_idx];
         require(
             msg.sender == config.payer ||
-                msg.sender ==
-                ens_registrar.ownerOf(
-                    uint256(keccak256(abi.encodePacked(config.name)))
-                ),
+                msg.sender == ens_registrar.ownerOf(uint256(label)),
             "Not allowed"
         );
         configs[label][config_idx].disabled = true;
+        emit DisableConfig(label, config_idx);
     }
 
     /// @inheritdoc IPermantentENS
@@ -52,14 +56,13 @@ contract PermantentENS is IPermantentENS, Ownable {
         uint256 duration
     ) external {
         Config memory config = configs[label][config_idx];
+        uint256 new_expiry = ens_registrar.nameExpires(
+            uint256(keccak256(abi.encodePacked(config.name)))
+        ) + duration;
         require(!config.disabled, "Config disabled");
         // name expire + extend length < current + max_duration
         require(
-            ens_registrar.nameExpires(
-                uint256(keccak256(abi.encodePacked(config.name)))
-            ) +
-                duration <=
-                block.timestamp + config.max_duration,
+            new_expiry <= block.timestamp + config.max_duration,
             "Extend too long"
         );
 
@@ -75,6 +78,7 @@ contract PermantentENS is IPermantentENS, Ownable {
 
         // renew ens
         ens_controller.renew{value: price}(config.name, duration);
+        emit RenewedConfig(label, duration, new_expiry);
 
         // pay miner fee
         payable(msg.sender).call{value: price_with_fee - price}("");

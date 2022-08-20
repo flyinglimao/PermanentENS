@@ -1,5 +1,10 @@
 {
-  "name": "hardhat-project",
+  "name": "permantent-ens",
+  "scripts": {
+    "test": "hardhat test",
+    "deploy": "hardhat deploy",
+    "node": "hardhat node"
+  },
   "dependencies": {
     "@nomicfoundation/hardhat-toolbox": "^1.0.1",
     "@openzeppelin/contracts": "^4.7.3",

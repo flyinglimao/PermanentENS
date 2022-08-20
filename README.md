@@ -36,7 +36,7 @@ The web is built with React.
 
 #### Browser Setup
 
-To run the web app, the contract need to be deployed and whitelist, hence you might need to run `yarn node`, which will start a fork, deploy and whitelist the contract.
+To run the web app, the contract need to be deployed and whitelist, hence you might need to run `yarn node`, which will start a fork. Then, deploy and whitelist the contract with mentioned commands.
 
 #### Init and start
 

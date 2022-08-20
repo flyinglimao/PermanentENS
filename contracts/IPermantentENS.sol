@@ -2,6 +2,15 @@
 pragma solidity ^0.8.0;
 
 interface IPermantentENS {
+    /// @notice Emit when a new config is added
+    event NewConfig(bytes32 indexed label, uint config_idx);
+
+    /// @notice Emit when a config is disavled
+    event DisableConfig(bytes32 indexed label, uint config_idx);
+
+    /// @notice Emit when a config is renewed
+    event RenewedConfig(bytes32 indexed label, uint duration, uint new_expiry);
+
     /// @notice Defines renew config
     struct Config {
         // Raw domain name (excluding `.eth`, such as `limao` instead of `limao.eth`)
@@ -23,7 +32,7 @@ interface IPermantentENS {
         );
 
     /// @notice Append a config for a label, anyone can call it
-    function enable(Config calldata config) external;
+    function enable(string calldata name, uint256 max_duration) external;
 
     /// @notice Disable a config. Only payer and domain owner can call it.
     ///
