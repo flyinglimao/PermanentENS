@@ -36,7 +36,7 @@ The web is built with React.
 
 #### Browser Setup
 
-To run the web app, the contract need to be deployed and whitelist, hence you might need to run `yarn node`, which will start a fork. Then, deploy and whitelist the contract with mentioned commands.
+Before start the web app, you should start local fork with `yarn start` and your wallet. If you had modified JSON-RPC server, you will have to modify config of the web app, too.
 
 #### Init and start
 

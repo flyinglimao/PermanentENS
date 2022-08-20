@@ -2,8 +2,8 @@
   "name": "permantent-ens",
   "scripts": {
     "test": "hardhat test",
-    "deploy": "hardhat deploy",
-    "node": "hardhat node"
+    "deploy": "hardhat run scripts/deploy.js",
+    "start": "hardhat node"
   },
   "dependencies": {
     "@nomicfoundation/hardhat-toolbox": "^1.0.1",
