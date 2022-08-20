@@ -13,16 +13,16 @@ const ENS_REGISTRAR_ABI = [
   'function nameExpires(uint256 id) external view returns(uint)',
 ];
 const DURATION = 86400 * 28;
-const ENS_NAME = 'permantentensdemo';
+const ENS_NAME = 'permanentensdemo';
 const ENS_LABEL = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(ENS_NAME));
 
-describe('PermantentENS', function () {
+describe('PermanentENS', function () {
   before(async () => {
-    const factory = await ethers.getContractFactory('PermantentENS');
+    const factory = await ethers.getContractFactory('PermanentENS');
     this.contract = await factory.deploy();
     this.signers = await ethers.getSigners();
 
-    // add PermantentENS to whitelist
+    // add PermanentENS to whitelist
     await whitelist({ ethers }, this.contract.address);
 
     // register a ENS domain

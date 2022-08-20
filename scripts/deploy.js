@@ -1,7 +1,7 @@
 const { ethers } = require('hardhat');
 
 async function main() {
-  const factory = await ethers.getContractFactory('PermantentENS');
+  const factory = await ethers.getContractFactory('PermanentENS');
   const contract = await factory.deploy();
   console.log(`Deployed at ${contract.address}`)
 }

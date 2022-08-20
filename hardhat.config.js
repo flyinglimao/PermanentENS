@@ -9,10 +9,10 @@ require('@nomicfoundation/hardhat-toolbox');
 
 subtask(TASK_NODE_SERVER_READY).setAction(async (taskArgs, hre, runSuper) => {
   await runSuper();
-  const factory = await hre.ethers.getContractFactory('PermantentENS');
+  const factory = await hre.ethers.getContractFactory('PermanentENS');
   const contract = await factory.deploy();
   await whitelist(hre, contract.address);
-  console.log(`PermantentDNS is deployed at ${contract.address}`);
+  console.log(`PermanentDNS is deployed at ${contract.address}`);
 });
 
 task('register-ens', 'Register a ENS')

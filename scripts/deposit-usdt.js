@@ -5,7 +5,7 @@ const ALCHEMIST_ABI = [
   'function depositUnderlying(address yieldToken, uint256 amount, address recipient, uint256 minimumAmountOut) external returns (uint256)',
   'function approveMint(address spender, uint256 amount) external',
 ];
-async function depositUSDT(amount, signer, permantentENS) {
+async function depositUSDT(amount, signer, permanentENS) {
   const alchemist = new ethers.Contract(ALCHEMIST, ALCHEMIST_ABI, signer);
 
   await alchemist.depositUnderlying(
@@ -14,7 +14,7 @@ async function depositUSDT(amount, signer, permantentENS) {
     signer.address,
     1
   );
-  await alchemist.approveMint(permantentENS, ethers.constants.MaxUint256);
+  await alchemist.approveMint(permanentENS, ethers.constants.MaxUint256);
 }
 
 module.exports = { depositUSDT };

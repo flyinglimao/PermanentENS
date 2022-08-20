@@ -5,12 +5,12 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./IENS.sol";
 import "./IAlchemist.sol";
-import "./IPermantentENS.sol";
+import "./IPermanentENS.sol";
 import "./IUniswap.sol";
 
 import "hardhat/console.sol";
 
-contract PermantentENS is IPermantentENS, Ownable {
+contract PermanentENS is IPermanentENS, Ownable {
     ETHRegistrarController constant ens_controller =
         ETHRegistrarController(0x283Af0B28c62C092C9727F1Ee09c02CA627EB7F5);
     ENSRegistrar constant ens_registrar =
@@ -33,7 +33,7 @@ contract PermantentENS is IPermantentENS, Ownable {
     uint public constant swap_fee =
         5000 + 100000; /* fee (3%) + slippage (2%) + base */
 
-    /// @inheritdoc IPermantentENS
+    /// @inheritdoc IPermanentENS
     mapping(bytes32 => Config[]) public configs;
 
     address[] swap_path = [address(ALUSD), address(weth)];
@@ -44,7 +44,7 @@ contract PermantentENS is IPermantentENS, Ownable {
         }
     }
 
-    /// @inheritdoc IPermantentENS
+    /// @inheritdoc IPermanentENS
     function enable(string calldata name, uint max_duration) external {
         bytes32 label = keccak256(abi.encodePacked(name));
         Config memory config = Config({
@@ -57,7 +57,7 @@ contract PermantentENS is IPermantentENS, Ownable {
         configs[label].push(config);
     }
 
-    /// @inheritdoc IPermantentENS
+    /// @inheritdoc IPermanentENS
     function disable(bytes32 label, uint config_idx) external {
         Config memory config = configs[label][config_idx];
         require(
@@ -69,7 +69,7 @@ contract PermantentENS is IPermantentENS, Ownable {
         emit DisableConfig(label, config_idx);
     }
 
-    /// @inheritdoc IPermantentENS
+    /// @inheritdoc IPermanentENS
     function mine(
         bytes32 label,
         uint config_idx,

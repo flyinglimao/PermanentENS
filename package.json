@@ -1,5 +1,5 @@
 {
-  "name": "permantent-ens",
+  "name": "permanent-ens",
   "scripts": {
     "test": "hardhat test",
     "deploy": "hardhat run scripts/deploy.js",

@@ -1,13 +1,13 @@
-# PermantentENS
+# PermanentENS
 
-PermantentENS is a proejct of [Money Legos Hackathon](https://gitcoin.co/hackathon/moneylegos/). With PermantentENS, people can pay renew fee with yield from many protocols. It based on [Alchemix](https://alchemix.fi).
+PermanentENS is a proejct of [Money Legos Hackathon](https://gitcoin.co/hackathon/moneylegos/). With PermanentENS, people can pay renew fee with yield from many protocols. It based on [Alchemix](https://alchemix.fi).
 
 ## How do I use it?
 
-1. Registers an ENS on [ENS](https://ens.domain) or via PermantentENS
+1. Registers an ENS on [ENS](https://ens.domain) or via PermanentENS
 2. Deposit a certain amount of USD tokens Alchemix
-3. Approve PermantentENS to mint debt for you
-4. (Optional) Approve PermantentENS to withdraw collateral for you when mintable debt isn't enough to pay the fee
+3. Approve PermanentENS to mint debt for you
+4. (Optional) Approve PermanentENS to withdraw collateral for you when mintable debt isn't enough to pay the fee
 
 ## Developement
 
@@ -31,7 +31,7 @@ Before deploying into mainnet, modify `hardhat.config.js` to specify the RPC end
 
 #### Deploy to local fork
 
-You can start a local fork with `yarn start`, which will deploy and whitelist PermantentENS when booting the network.
+You can start a local fork with `yarn start`, which will deploy and whitelist PermanentENS when booting the network.
 
 Here are some useful commands can be used after start the fork (add `--network localhost` after each command):
 

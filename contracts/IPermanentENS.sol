@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-interface IPermantentENS {
+interface IPermanentENS {
     /// @notice Emit when a new config is added
     event NewConfig(bytes32 indexed label, uint config_idx);
 

@@ -11,7 +11,7 @@ const WHITELIST_ABI = [
 ];
 
 async function whitelist({ ethers }, address) {
-  // add PermantentENS to whitelist
+  // add PermanentENS to whitelist
   const alchemist = new ethers.Contract(
     ALCHEMIST,
     ALCHEMIST_ABI,
