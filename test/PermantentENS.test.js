@@ -1,9 +1,13 @@
-const { ethers, provider } = require('hardhat');
+const { use, expect } = require('chai');
+const { ethers } = require('hardhat');
+const chaiAsPromised = require('chai-as-promised');
+use(chaiAsPromised);
 
 const ALCHEMIST = '0x5C6374a2ac4EBC38DeA0Fc1F8716e5Ea1AdD94dd';
 const ALCHEMIST_ABI = [
   'function whitelist() external view returns (address)',
   'function depositUnderlying(address yieldToken, uint256 amount, address recipient, uint256 minimumAmountOut) external returns (uint256)',
+  'function approveMint(address spender, uint256 amount) external',
 ];
 const WHITELIST_ABI = [
   'function owner() external view returns (address)',
@@ -15,6 +19,10 @@ const ENS_REGISTRAR_CONTROLLER_ABI = [
   'function commit(bytes32 commitment) public',
   'function register(string calldata name, address owner, uint duration, bytes32 secret) external payable',
   'function rentPrice(string memory name, uint duration) view public returns(uint)',
+];
+const ENS_REGISTRAR = '0x57f1887a8bf19b14fc0df6fd9b2acc9af147ea85';
+const ENS_REGISTRAR_ABI = [
+  'function nameExpires(uint256 id) external view returns(uint)',
 ];
 const USDT_ADDRESS = '0xdAC17F958D2ee523a2206206994597C13D831ec7';
 const USDT_OWNER = '0xC6CDE7C39eB2f0F0095F41570af89eFC2C1Ea828';
@@ -90,13 +98,25 @@ describe('PermantentENS', function () {
     );
     const usdtAmount = ethers.utils.parseUnits('1000000', 6);
     await usdt.issue(usdtAmount);
-    await usdt.transfer(this.signers[0].address, usdtAmount);
-    await usdt.connect(this.signers[0]).approve(ALCHEMIST, usdtAmount);
-    await alchemist.depositUnderlying(
-      '0x7Da96a3891Add058AdA2E826306D812C638D87a7',
-      usdtAmount,
-      this.signers[0].address,
-      1
+    await usdt.transfer(this.signers[1].address, usdtAmount);
+    await usdt.connect(this.signers[1]).approve(ALCHEMIST, usdtAmount);
+    await alchemist
+      .connect(this.signers[1])
+      .depositUnderlying(
+        '0x7Da96a3891Add058AdA2E826306D812C638D87a7',
+        usdtAmount,
+        this.signers[1].address,
+        1
+      );
+    await alchemist
+      .connect(this.signers[1])
+      .approveMint(this.contract.address, ethers.constants.MaxUint256);
+
+    // other setup
+    this.ensRegistrar = new ethers.Contract(
+      ENS_REGISTRAR,
+      ENS_REGISTRAR_ABI,
+      ethers.provider
     );
   });
 
@@ -108,11 +128,75 @@ describe('PermantentENS', function () {
     await network.provider.send('evm_revert', [this.snapshot]);
   });
 
-  it('Signer[1] enable a config and Signer[2] mine the config');
+  it('Signer[1] enable a config', async () => {
+    const enableTxRes = await this.contract
+      .connect(this.signers[1])
+      .enable(ENS_NAME, DURATION * 12);
 
-  it('Signer[2] cannot mine a config that exceed the max duration');
+    const enableTxReceipt = await enableTxRes.wait();
+    const newConfigEvent = enableTxReceipt.events[0];
 
-  it('Signer[1] disable a config and Signer[2] cannot mine the config');
+    expect(newConfigEvent.args.label).equals(ENS_LABEL);
+    expect(newConfigEvent.args.config_idx).equals(ethers.BigNumber.from(0));
+  });
 
-  it('Signer[1] enable a config and owner (Signer[0]) disable the config');
+  it('Signer[2] can mine a config', async () => {
+    await this.contract
+      .connect(this.signers[1])
+      .enable(ENS_NAME, DURATION * 12);
+
+    const beforeMineExpiry = await this.ensRegistrar.nameExpires(ENS_LABEL);
+    const mineTxRes = await this.contract
+      .connect(this.signers[2])
+      .mine(ENS_LABEL, 0, DURATION);
+
+    const mineTxReceipt = await mineTxRes.wait();
+    const renewConfigEvent = mineTxReceipt.events.find(
+      (evt) => evt.event === 'RenewedConfig'
+    );
+    const afterMineExpiry = await this.ensRegistrar.nameExpires(ENS_LABEL);
+
+    expect(renewConfigEvent.args.label).equals(ENS_LABEL);
+    expect(renewConfigEvent.args.duration).equals(
+      ethers.BigNumber.from(DURATION)
+    );
+    expect(renewConfigEvent.args.new_expiry).equals(afterMineExpiry);
+    expect(afterMineExpiry.sub(beforeMineExpiry)).equals(
+      ethers.BigNumber.from(DURATION)
+    );
+  });
+
+  it('Signer[2] cannot mine a config that exceed the max duration', async () => {
+    await this.contract
+      .connect(this.signers[1])
+      .enable(ENS_NAME, DURATION * 12);
+
+    await expect(
+      this.contract.connect(this.signers[2]).mine(ENS_LABEL, 0, DURATION * 13)
+    ).eventually.to.be.rejected;
+  });
+
+  it('Signer[1] disable a config and Signer[2] cannot mine the config', async () => {
+    await this.contract
+      .connect(this.signers[1])
+      .enable(ENS_NAME, DURATION * 12);
+
+    await this.contract.connect(this.signers[1]).disable(ENS_LABEL, 0);
+
+    await expect(
+      this.contract.connect(this.signers[2]).mine(ENS_LABEL, 0, DURATION)
+    ).eventually.to.be.rejected;
+  });
+
+  it('Signer[1] enable a config and owner (Signer[0]) disable the config', async () => {
+    await this.contract
+      .connect(this.signers[1])
+      .enable(ENS_NAME, DURATION * 12);
+
+    await this.contract.disable(ENS_LABEL, 0); // disable as owner of the ENS domain
+
+    await expect(
+      this.contract.connect(this.signers[2]).mine(ENS_LABEL, 0, DURATION)
+    ).eventually.to.be.rejected;
+  });
 });
