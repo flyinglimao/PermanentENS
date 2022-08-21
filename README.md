@@ -55,4 +55,4 @@ Before start the web app, you should start local fork with `yarn start` and your
 
 #### Build
 
-After running `yarn build`, the built files will locate in `./web/dist`
+After running `yarn build`, the built files will locate in `./web/build`
