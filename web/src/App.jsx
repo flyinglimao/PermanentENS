@@ -12,10 +12,12 @@ import { WalletConnectConnector } from "wagmi/connectors/walletConnect";
 import { ConnectKitProvider} from 'connectkit';
 import { Buffer } from "buffer";
 
-import "./App.css";
-
 if (!window.Buffer) window.Buffer = Buffer;
 
+const Root = styled.div`
+background: linear-gradient(0deg, rgba(255,255,255,1) 50%, rgb(252, 240, 227) 100%);
+min-height: 100vh;
+`;
 const Wrapper = styled(Container)`
   place-items: center;
   display: grid;
@@ -27,7 +29,6 @@ const HeroDiv = styled.div`
   width: min-content;
   margin: 0 auto 30px;
 `;
-
 
 const { chains, provider } = configureChains(
   [chain.mainnet, chain.hardhat],
@@ -68,7 +69,7 @@ function App() {
   return (
     <WagmiConfig client={client}>
       <ConnectKitProvider>
-        <div className="root">
+        <Root>
           <Wrapper maxWidth="lg">
             <div>
               <HeroDiv>
@@ -78,7 +79,7 @@ function App() {
               <RepayingList />
             </div>
           </Wrapper>
-        </div>
+        </Root>
       </ConnectKitProvider>
     </WagmiConfig>
   );
