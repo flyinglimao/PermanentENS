@@ -3,10 +3,10 @@ pragma solidity ^0.8.0;
 
 interface IPermanentENS {
     /// @notice Emit when a new config is added
-    event NewConfig(bytes32 indexed label, uint config_idx);
+    event NewConfig(bytes32 indexed label, address indexed payer, uint config_idx);
 
     /// @notice Emit when a config is disavled
-    event DisableConfig(bytes32 indexed label, uint config_idx);
+    event DisableConfig(bytes32 indexed label, address indexed payer, uint config_idx);
 
     /// @notice Emit when a config is renewed
     event RenewedConfig(bytes32 indexed label, uint duration, uint new_expiry);

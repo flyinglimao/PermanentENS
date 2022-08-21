@@ -53,7 +53,7 @@ contract PermanentENS is IPermanentENS, Ownable {
             max_duration: max_duration,
             disabled: false
         });
-        emit NewConfig(label, configs[label].length);
+        emit NewConfig(label, msg.sender, configs[label].length);
         configs[label].push(config);
     }
 
@@ -66,7 +66,7 @@ contract PermanentENS is IPermanentENS, Ownable {
             "Not allowed"
         );
         configs[label][config_idx].disabled = true;
-        emit DisableConfig(label, config_idx);
+        emit DisableConfig(label, config.payer, config_idx);
     }
 
     /// @inheritdoc IPermanentENS
