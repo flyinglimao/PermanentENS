@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -11,9 +12,9 @@ import {
   Collapse,
   Grid,
 } from "@mui/material";
-import { useState } from "react";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
+import { useAccount } from "wagmi";
 
 function ListItem() {
   const [open, setOpen] = useState(false);
@@ -57,18 +58,26 @@ function ListItem() {
 }
 
 export function RepayingList() {
+  const { isConnected } = useAccount();
   return (
     <Box
       sx={{
+        height: isConnected ? undefined : 0,
         width: "800px",
+        overflow: "hidden",
       }}
     >
       <Typography variant="h5" component="h2">
         Repaying
       </Typography>
-      <TableContainer component={Box} size="small">
+      <TableContainer
+        component={Box}
+        size="small"
+        sx={{ maxHeight: 400, overflow: "hidden auto" }}
+      >
         <Table sx={{ width: 800 }}>
           <TableBody>
+            <ListItem />
             <ListItem />
           </TableBody>
         </Table>
