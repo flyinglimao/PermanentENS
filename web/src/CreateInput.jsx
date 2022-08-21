@@ -63,7 +63,7 @@ export function CreateInput() {
         onChange={(evt) => setName(evt.target.value)}
         endAdornment={
           <>
-            <InputAdornment position="end">.ens</InputAdornment>
+            <InputAdornment position="end">.eth</InputAdornment>
             {isConnected ? (
               <Button
                 variant="contained"

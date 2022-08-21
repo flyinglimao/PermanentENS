@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Box,
   Typography,
@@ -14,10 +14,62 @@ import {
 } from "@mui/material";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
-import { useAccount } from "wagmi";
+import {
+  useAccount,
+  useBlockNumber,
+  useContract,
+  useContractRead,
+  useProvider,
+} from "wagmi";
+import { useContractEventLog } from "./useContractEventLog";
+import { Interface, keccak256, toUtf8Bytes } from "ethers/lib/utils";
+import moment from "moment";
+import { useEffect } from "react";
 
-function ListItem() {
+const permanentEnsContract = {
+  addressOrName: process.env.REACT_APP_CONTRACT,
+  contractInterface: new Interface([
+    "event NewConfig(bytes32 indexed label, address indexed payer, uint config_idx)",
+    "event DisableConfig(bytes32 indexed label, address indexed payer, uint config_idx)",
+    "event RenewedConfig(bytes32 indexed label, uint duration, uint new_expiry)",
+    "function configs(bytes32 label, uint256 config_idx) external view returns (string name, address payer, uint256 max_duration, bool disabled)",
+  ]),
+};
+const ensContract = {
+  addressOrName: "0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85",
+  contractInterface: new Interface([
+    "function nameExpires(uint256 id) external view returns(uint)",
+  ]),
+};
+function useBlockTime(block) {
+  const provider = useProvider();
+  const [time, setTime] = useState();
+  useEffect(() => {
+    if (block) provider.getBlock(block).then((e) => setTime(e.timestamp));
+  }, [block, provider]);
+
+  return time;
+}
+function ListItem({ label, idx, renewLogs }) {
   const [open, setOpen] = useState(false);
+  const { data: configData, isLoading: configLoading } = useContractRead({
+    ...permanentEnsContract,
+    functionName: "configs",
+    args: [label, idx],
+  });
+  const ensId = keccak256(toUtf8Bytes((configData && configData.name) || ""));
+  const { data: ensData, isLoading: ensLoading } = useContractRead({
+    ...ensContract,
+    functionName: "nameExpires",
+    args: [ensId],
+  });
+  const lastRenewIdx = renewLogs.lastIndexOf(
+    (e) => e.args.label === label && e.args.config_idx === idx
+  );
+  const renewTime = useBlockTime(
+    lastRenewIdx >= 0 ? renewLogs[lastRenewIdx].blockNumber : 0
+  );
+
   return (
     <>
       <TableRow sx={{ "& > *": { borderBottom: "unset" } }}>
@@ -30,7 +82,9 @@ function ListItem() {
             {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
           </IconButton>
         </TableCell>
-        <TableCell>limao.eth</TableCell>
+        <TableCell>
+          {configLoading ? "Loading..." : configData.name + ".eth"}
+        </TableCell>
         <TableCell align="right">
           <Button variant="outlined" size="small">
             Disable
@@ -42,12 +96,25 @@ function ListItem() {
           <Collapse in={open} timeout="auto" unmountOnExit>
             <Grid container sx={{ margin: 1 }}>
               <Grid item xs={6}>
-                Expiry: 2032/03/12 15:33:32
+                Expiry:{" "}
+                {!ensLoading && ensData
+                  ? new Date(ensData.toNumber() * 1000).toLocaleString()
+                  : "Loading..."}
                 <br />
-                Last Renewed: 2022/03/12 15:33:32
+                Last Renewed:{" "}
+                {lastRenewIdx >= 0
+                  ? renewTime
+                    ? new Date(renewTime.toNumber() * 1000).toLocaleString()
+                    : "Loading..."
+                  : "N/A"}
               </Grid>
               <Grid item xs={6}>
-                Max Duration: 10 years
+                Max Duration:{" "}
+                {configLoading
+                  ? "Loading..."
+                  : moment
+                      .duration(configData.max_duration.toNumber() * 1000)
+                      .humanize()}
               </Grid>
             </Grid>
           </Collapse>
@@ -58,7 +125,58 @@ function ListItem() {
 }
 
 export function RepayingList() {
-  const { isConnected } = useAccount();
+  const { isConnected, account } = useAccount();
+  const provider = useProvider();
+  const contract = useContract(permanentEnsContract);
+  const { data: blockNumber, isLoading } = useBlockNumber({ watch: false });
+  const newConfigLogs = useContractEventLog(
+    contract.connect(provider),
+    contract.filters.NewConfig(null, account),
+    {
+      from: parseInt(process.env.REACT_APP_CONTRACT_DEPLOYED_BLOCKNUMBER),
+      to: blockNumber,
+    },
+    isLoading
+  );
+  const disableConfigLogs = useContractEventLog(
+    contract.connect(provider),
+    contract.filters.DisableConfig(null, account),
+    {
+      from: parseInt(process.env.REACT_APP_CONTRACT_DEPLOYED_BLOCKNUMBER),
+      to: blockNumber,
+    },
+    isLoading
+  );
+  const renewConfigLogs = useContractEventLog(
+    contract.connect(provider),
+    contract.filters.RenewedConfig(null, account),
+    {
+      from: parseInt(process.env.REACT_APP_CONTRACT_DEPLOYED_BLOCKNUMBER),
+      to: blockNumber,
+    },
+    isLoading
+  );
+  const repaying =
+    newConfigLogs &&
+    disableConfigLogs &&
+    newConfigLogs
+      .map((e) => e.args)
+      .filter(
+        (e, idx, array) =>
+          array.findIndex(
+            (f) =>
+              f.label === e.label &&
+              f.config_idx.toNumber() === e.config_idx.toNumber()
+          ) === idx
+      )
+      .filter(
+        (evt) =>
+          !disableConfigLogs.some(
+            (e) =>
+              e.args.label === evt.label && e.args.config_idx === evt.config_idx
+          )
+      );
+
   return (
     <Box
       sx={{
@@ -77,8 +195,14 @@ export function RepayingList() {
       >
         <Table sx={{ width: 800 }}>
           <TableBody>
-            <ListItem />
-            <ListItem />
+            {repaying.map((item) => (
+              <ListItem
+                key={`${item.label}-${item.config_idx}`}
+                label={item.label}
+                idx={item.config_idx}
+                renewLogs={renewConfigLogs}
+              />
+            ))}
           </TableBody>
         </Table>
       </TableContainer>
