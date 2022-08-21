@@ -31,7 +31,7 @@ const HeroDiv = styled.div`
 `;
 
 const { chains, provider } = configureChains(
-  [chain.mainnet, chain.hardhat],
+  [chain.hardhat, chain.mainnet],
   [
     infuraProvider(process.env.REACT_APP_INFURA),
     jsonRpcProvider({ rpc: () => process.env.REACT_APP_JSON_RPC }),
