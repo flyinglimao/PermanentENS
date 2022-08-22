@@ -27,11 +27,9 @@ contract PermanentENS is IPermanentENS, Ownable {
     /// @notice The max fee when an user trigger renew for other one, divided by 100000
     ///
     /// @dev The miner receive will be `price * miner fee - swap fee`, hence miners can use some ways to reduce the slippage to increase their profit
-    uint public constant miner_fee =
-        10000 + 100000; /* fee + base */
+    uint256 public constant miner_fee = 10000 + 100000; /* fee + base */
     /// @notice The slippage allowed when swap, divided by 100000
-    uint public constant swap_fee =
-        5000 + 100000; /* fee (3%) + slippage (2%) + base */
+    uint256 public constant swap_fee = 5000 + 100000; /* fee (3%) + slippage (2%) + base */
 
     /// @inheritdoc IPermanentENS
     mapping(bytes32 => Config[]) public configs;
@@ -40,12 +38,12 @@ contract PermanentENS is IPermanentENS, Ownable {
 
     constructor() {
         unchecked {
-            ALUSD.approve(address(sushi_router), uint(0) - 1);
+            ALUSD.approve(address(sushi_router), uint256(0) - 1);
         }
     }
 
     /// @inheritdoc IPermanentENS
-    function enable(string calldata name, uint max_duration) external {
+    function enable(string calldata name, uint256 max_duration) external {
         bytes32 label = keccak256(abi.encodePacked(name));
         Config memory config = Config({
             name: name,
@@ -58,11 +56,12 @@ contract PermanentENS is IPermanentENS, Ownable {
     }
 
     /// @inheritdoc IPermanentENS
-    function disable(bytes32 label, uint config_idx) external {
+    function disable(bytes32 label, uint256 config_idx) external {
         Config memory config = configs[label][config_idx];
         require(
-            msg.sender == config.payer ||
-                msg.sender == ens_registrar.ownerOf(uint(label)),
+            (!configs[label][config_idx].disabled &&
+                msg.sender == config.payer) ||
+                msg.sender == ens_registrar.ownerOf(uint256(label)),
             "Not allowed"
         );
         configs[label][config_idx].disabled = true;
@@ -72,12 +71,12 @@ contract PermanentENS is IPermanentENS, Ownable {
     /// @inheritdoc IPermanentENS
     function mine(
         bytes32 label,
-        uint config_idx,
-        uint duration
+        uint256 config_idx,
+        uint256 duration
     ) external {
         Config memory config = configs[label][config_idx];
-        uint new_expiry = ens_registrar.nameExpires(
-            uint(keccak256(abi.encodePacked(config.name)))
+        uint256 new_expiry = ens_registrar.nameExpires(
+            uint256(keccak256(abi.encodePacked(config.name)))
         ) + duration;
         require(!config.disabled, "Config disabled");
         // name expire + extend length < current + max_duration
@@ -87,20 +86,20 @@ contract PermanentENS is IPermanentENS, Ownable {
         );
 
         // compute the alUSD required to pay renew fee and miner fee
-        uint renew_price_wei = ens_controller.rentPrice(
+        uint256 renew_price_wei = ens_controller.rentPrice(
             config.name,
             duration
         ); // in eth
-        uint name_length = strlen(config.name);
-        uint renew_price_usd = ens_price_oracle.rentPrices(
+        uint256 name_length = strlen(config.name);
+        uint256 renew_price_usd = ens_price_oracle.rentPrices(
             (name_length > 5 ? 5 : name_length) - 1
         ) * duration; // in usd
-        uint usd_amount = (renew_price_usd * miner_fee) / 100000;
-        uint usd_swap_amount = (renew_price_usd * swap_fee) / 100000;
+        uint256 usd_amount = (renew_price_usd * miner_fee) / 100000;
+        uint256 usd_swap_amount = (renew_price_usd * swap_fee) / 100000;
         alchemist.mintFrom(config.payer, usd_amount, address(this));
 
         // swap alUSD to ETH
-        uint spend = sushi_router.swapTokensForExactETH(
+        uint256 spend = sushi_router.swapTokensForExactETH(
             renew_price_wei,
             usd_swap_amount,
             swap_path,
@@ -118,10 +117,10 @@ contract PermanentENS is IPermanentENS, Ownable {
 
     receive() external payable {}
 
-    function strlen(string memory str) internal pure returns (uint) {
-        uint len;
-        uint i = 0;
-        uint bytelength = bytes(str).length;
+    function strlen(string memory str) internal pure returns (uint256) {
+        uint256 len;
+        uint256 i = 0;
+        uint256 bytelength = bytes(str).length;
         for (len = 0; i < bytelength; len++) {
             bytes1 b = bytes(str)[i];
             if (b < 0x80) {
