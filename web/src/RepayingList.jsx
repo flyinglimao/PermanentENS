@@ -67,9 +67,7 @@ function ListItem({ label, idx, renewLogs }) {
     args: [label],
   });
   const lastRenew = renewLogs.reverse().find((e) => e.args.label === label);
-  const renewTime = useBlockTime(
-    lastRenew ? lastRenew.blockNumber : 0
-  );
+  const renewTime = useBlockTime(lastRenew ? lastRenew.blockNumber : 0);
   const { config } = usePrepareContractWrite({
     ...permanentEnsContract,
     functionName: "disable",
@@ -212,14 +210,25 @@ export function RepayingList() {
       >
         <Table sx={{ width: 800 }}>
           <TableBody>
-            {repaying.map((item) => (
-              <ListItem
-                key={`${item.label}-${item.config_idx}`}
-                label={item.label}
-                idx={item.config_idx}
-                renewLogs={renewConfigLogs}
-              />
-            ))}
+            {repaying.length ? (
+              repaying.map((item) => (
+                <ListItem
+                  key={`${item.label}-${item.config_idx}`}
+                  label={item.label}
+                  idx={item.config_idx}
+                  renewLogs={renewConfigLogs}
+                />
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={3}
+                  sx={{ fontStyle: "italic", textAlign: "center" }}
+                >
+                  No repaying domain
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </TableContainer>
