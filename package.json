@@ -2,6 +2,7 @@
   "name": "permanent-ens",
   "scripts": {
     "test": "hardhat test",
+    "compile": "hardhat compile",
     "deploy": "hardhat run scripts/deploy.js",
     "start": "hardhat node",
     "register-ens": "hardhat register-ens",
