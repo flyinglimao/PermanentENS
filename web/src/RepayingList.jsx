@@ -20,6 +20,8 @@ import {
   useContract,
   useContractRead,
   useProvider,
+  usePrepareContractWrite,
+  useContractWrite,
 } from "wagmi";
 import { useContractEventLog } from "./useContractEventLog";
 import { Interface, keccak256, toUtf8Bytes } from "ethers/lib/utils";
@@ -33,6 +35,7 @@ const permanentEnsContract = {
     "event DisableConfig(bytes32 indexed label, address indexed payer, uint config_idx)",
     "event RenewedConfig(bytes32 indexed label, uint duration, uint new_expiry)",
     "function configs(bytes32 label, uint256 config_idx) external view returns (string name, address payer, uint256 max_duration, bool disabled)",
+    "function disable(bytes32 label, uint256 config_idx) external",
   ]),
 };
 const ensContract = {
@@ -57,11 +60,10 @@ function ListItem({ label, idx, renewLogs }) {
     functionName: "configs",
     args: [label, idx],
   });
-  const ensId = keccak256(toUtf8Bytes((configData && configData.name) || ""));
   const { data: ensData, isLoading: ensLoading } = useContractRead({
     ...ensContract,
     functionName: "nameExpires",
-    args: [ensId],
+    args: [label],
   });
   const lastRenewIdx = renewLogs.lastIndexOf(
     (e) => e.args.label === label && e.args.config_idx === idx
@@ -69,6 +71,12 @@ function ListItem({ label, idx, renewLogs }) {
   const renewTime = useBlockTime(
     lastRenewIdx >= 0 ? renewLogs[lastRenewIdx].blockNumber : 0
   );
+  const { config } = usePrepareContractWrite({
+    ...permanentEnsContract,
+    functionName: "disable",
+    args: [label, idx],
+  });
+  const { isLoading: isSending, write } = useContractWrite(config);
 
   return (
     <>
@@ -86,8 +94,13 @@ function ListItem({ label, idx, renewLogs }) {
           {configLoading ? "Loading..." : configData.name + ".eth"}
         </TableCell>
         <TableCell align="right">
-          <Button variant="outlined" size="small">
-            Disable
+          <Button
+            variant="outlined"
+            size="small"
+            disabled={!write || isSending}
+            onClick={() => write()}
+          >
+            {isSending ? "Sending" : "Disable"}
           </Button>
         </TableCell>
       </TableRow>
@@ -173,7 +186,8 @@ export function RepayingList() {
         (evt) =>
           !disableConfigLogs.some(
             (e) =>
-              e.args.label === evt.label && e.args.config_idx === evt.config_idx
+              e.args.label === evt.label &&
+              e.args.config_idx.toNumber() === evt.config_idx.toNumber()
           )
       );
 
