@@ -22,9 +22,10 @@ import {
   useProvider,
   usePrepareContractWrite,
   useContractWrite,
+  useWaitForTransaction,
 } from "wagmi";
 import { useContractEventLog } from "./useContractEventLog";
-import { Interface, keccak256, toUtf8Bytes } from "ethers/lib/utils";
+import { Interface } from "ethers/lib/utils";
 import moment from "moment";
 import { useEffect } from "react";
 
@@ -65,18 +66,19 @@ function ListItem({ label, idx, renewLogs }) {
     functionName: "nameExpires",
     args: [label],
   });
-  const lastRenewIdx = renewLogs.lastIndexOf(
-    (e) => e.args.label === label && e.args.config_idx === idx
-  );
+  const lastRenew = renewLogs.reverse().find((e) => e.args.label === label);
   const renewTime = useBlockTime(
-    lastRenewIdx >= 0 ? renewLogs[lastRenewIdx].blockNumber : 0
+    lastRenew ? lastRenew.blockNumber : 0
   );
   const { config } = usePrepareContractWrite({
     ...permanentEnsContract,
     functionName: "disable",
     args: [label, idx],
   });
-  const { isLoading: isSending, write } = useContractWrite(config);
+  const { data, isLoading: isSending, write } = useContractWrite(config);
+  const { isLoading: isProcessing } = useWaitForTransaction({
+    hash: data && data.hash,
+  });
 
   return (
     <>
@@ -97,10 +99,10 @@ function ListItem({ label, idx, renewLogs }) {
           <Button
             variant="outlined"
             size="small"
-            disabled={!write || isSending}
+            disabled={!write || isSending || isProcessing}
             onClick={() => write()}
           >
-            {isSending ? "Sending" : "Disable"}
+            {isSending || isProcessing ? "Sending" : "Disable"}
           </Button>
         </TableCell>
       </TableRow>
@@ -115,9 +117,9 @@ function ListItem({ label, idx, renewLogs }) {
                   : "Loading..."}
                 <br />
                 Last Renewed:{" "}
-                {lastRenewIdx >= 0
+                {lastRenew
                   ? renewTime
-                    ? new Date(renewTime.toNumber() * 1000).toLocaleString()
+                    ? new Date(renewTime * 1000).toLocaleString()
                     : "Loading..."
                   : "N/A"}
               </Grid>
@@ -138,13 +140,13 @@ function ListItem({ label, idx, renewLogs }) {
 }
 
 export function RepayingList() {
-  const { isConnected, account } = useAccount();
+  const { isConnected, address } = useAccount();
   const provider = useProvider();
   const contract = useContract(permanentEnsContract);
   const { data: blockNumber, isLoading } = useBlockNumber({ watch: false });
   const newConfigLogs = useContractEventLog(
     contract.connect(provider),
-    contract.filters.NewConfig(null, account),
+    contract.filters.NewConfig(null, address),
     {
       from: parseInt(process.env.REACT_APP_CONTRACT_DEPLOYED_BLOCKNUMBER),
       to: blockNumber,
@@ -153,7 +155,7 @@ export function RepayingList() {
   );
   const disableConfigLogs = useContractEventLog(
     contract.connect(provider),
-    contract.filters.DisableConfig(null, account),
+    contract.filters.DisableConfig(null, address),
     {
       from: parseInt(process.env.REACT_APP_CONTRACT_DEPLOYED_BLOCKNUMBER),
       to: blockNumber,
@@ -162,13 +164,14 @@ export function RepayingList() {
   );
   const renewConfigLogs = useContractEventLog(
     contract.connect(provider),
-    contract.filters.RenewedConfig(null, account),
+    contract.filters.RenewedConfig(),
     {
       from: parseInt(process.env.REACT_APP_CONTRACT_DEPLOYED_BLOCKNUMBER),
       to: blockNumber,
     },
     isLoading
   );
+
   const repaying =
     newConfigLogs &&
     disableConfigLogs &&
